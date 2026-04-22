@@ -3,9 +3,8 @@ set -e
 
 echo "Starting Hive Metastore..."
 
-export HIVE_AUX_JARS_PATH=/opt/hive/lib/postgresql.jar
-export HADOOP_CLASSPATH="/opt/hive/lib/postgresql.jar:${HADOOP_CLASSPATH}"
-export HIVE_CLASSPATH="/opt/hive/lib/postgresql.jar:${HIVE_CLASSPATH}"
+# Force classpath at runtime
+export CLASSPATH="/opt/hive/lib/postgresql.jar:$CLASSPATH"
 
 until nc -z postgres 5432; do
   echo "Waiting for PostgreSQL..."
@@ -20,11 +19,13 @@ done
 hdfs dfs -mkdir -p /user/hive/warehouse || true
 hdfs dfs -chmod -R 777 /user/hive || true
 
-echo "Initializing or upgrading metastore schema..."
+echo "Initializing schema..."
+
 /opt/hive/bin/schematool \
   -dbType postgres \
   -driver org.postgresql.Driver \
   -initOrUpgradeSchema
 
-echo "Starting metastore service..."
+echo "Starting metastore..."
+
 exec /opt/hive/bin/hive --service metastore
