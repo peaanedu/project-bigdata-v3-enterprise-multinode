@@ -226,6 +226,7 @@ services:
           condition: service_healthy
         hive-metastore:
           condition: service_healthy
+
       healthcheck:
         test: ["CMD", "bash", "-lc", "echo 'show databases;' | beeline -u jdbc:hive2://localhost:10000/default -n hive >/dev/null 2>&1"]
         interval: 60s
@@ -248,10 +249,7 @@ services:
       hive-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "trino --execute 'SHOW CATALOGS' >/dev/null 2>&1"]
-      interval: 20s
-      timeout: 10s
-      retries: 20
+      disable: true
 
   spark-master:
     image: apache/spark:3.5.1-python3
