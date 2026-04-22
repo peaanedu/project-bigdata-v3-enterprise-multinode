@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+
+  <!-- PostgreSQL Metastore -->
   <property>
     <name>javax.jdo.option.ConnectionURL</name>
     <value>jdbc:postgresql://postgres:5432/metastore</value>
@@ -16,16 +18,45 @@
     <name>javax.jdo.option.ConnectionPassword</name>
     <value>hivepassword</value>
   </property>
+
+  <!-- Metastore -->
   <property>
     <name>hive.metastore.uris</name>
     <value>thrift://hive-metastore:9083</value>
   </property>
+
+  <!-- HiveServer2 (CRITICAL) -->
+  <property>
+    <name>hive.server2.thrift.bind.host</name>
+    <value>0.0.0.0</value>
+  </property>
+  <property>
+    <name>hive.server2.thrift.port</name>
+    <value>10000</value>
+  </property>
+
+  <!-- Execution Engine -->
+  <property>
+    <name>hive.execution.engine</name>
+    <value>tez</value>
+  </property>
+
+  <!-- Warehouse -->
   <property>
     <name>hive.metastore.warehouse.dir</name>
-    <value>/user/hive/warehouse</value>
+    <value>/opt/hive/data/warehouse</value>
   </property>
+
+  <!-- Temp / Scratch -->
   <property>
-    <name>datanucleus.autoCreateSchema</name>
+    <name>hive.exec.scratchdir</name>
+    <value>/tmp/hive</value>
+  </property>
+
+  <!-- Disable proxy user -->
+  <property>
+    <name>hive.server2.enable.doAs</name>
     <value>false</value>
   </property>
+
 </configuration>
