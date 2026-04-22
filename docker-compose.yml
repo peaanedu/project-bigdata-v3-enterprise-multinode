@@ -1,0 +1,301 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-metastore}
+      POSTGRES_USER: ${POSTGRES_USER:-hive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hivepassword}
+      TZ: ${TZ:-Asia/Phnom_Penh}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hive} -d ${POSTGRES_DB:-metastore}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  namenode:
+    image: apache/hadoop:3.4.2
+    container_name: namenode
+    hostname: namenode
+    user: root
+    environment:
+      TZ: ${TZ:-Asia/Phnom_Penh}
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+    command: ["bash", "/opt/bootstrap/scripts/hadoop/run-namenode.sh"]
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - namenode_data:/data/hdfs/namenode
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop
+      - ./datasets:/opt/bootstrap/datasets
+      - ./sql:/opt/bootstrap/sql
+      - ./scripts:/opt/bootstrap/scripts
+    healthcheck:
+      test: ["CMD-SHELL", "hdfs dfsadmin -report >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+  datanode1:
+    image: apache/hadoop:3.4.2
+    container_name: datanode1
+    hostname: datanode1
+    user: root
+    environment:
+      TZ: ${TZ:-Asia/Phnom_Penh}
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+    command: ["bash", "/opt/bootstrap/scripts/hadoop/run-datanode.sh"]
+    ports:
+      - "9864:9864"
+    volumes:
+      - datanode1_data:/data/hdfs/datanode
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop
+      - ./scripts:/opt/bootstrap/scripts
+    depends_on:
+      namenode:
+        condition: service_healthy
+
+  datanode2:
+    image: apache/hadoop:3.4.2
+    container_name: datanode2
+    hostname: datanode2
+    user: root
+    environment:
+      TZ: ${TZ:-Asia/Phnom_Penh}
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+    command: ["bash", "/opt/bootstrap/scripts/hadoop/run-datanode.sh"]
+    ports:
+      - "9865:9864"
+    volumes:
+      - datanode2_data:/data/hdfs/datanode
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop
+      - ./scripts:/opt/bootstrap/scripts
+    depends_on:
+      namenode:
+        condition: service_healthy
+
+  datanode3:
+    image: apache/hadoop:3.4.2
+    container_name: datanode3
+    hostname: datanode3
+    user: root
+    environment:
+      TZ: ${TZ:-Asia/Phnom_Penh}
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+    command: ["bash", "/opt/bootstrap/scripts/hadoop/run-datanode.sh"]
+    ports:
+      - "9866:9864"
+    volumes:
+      - datanode3_data:/data/hdfs/datanode
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop
+      - ./scripts:/opt/bootstrap/scripts
+    depends_on:
+      namenode:
+        condition: service_healthy
+
+  resourcemanager:
+    image: apache/hadoop:3.4.2
+    container_name: resourcemanager
+    hostname: resourcemanager
+    user: root
+    environment:
+      TZ: ${TZ:-Asia/Phnom_Penh}
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+    command: ["bash", "-lc", "mkdir -p /opt/hadoop/logs && chown -R hadoop:hadoop /opt/hadoop/logs /tmp || true && exec su -s /bin/bash hadoop -c 'yarn resourcemanager'"]
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop
+    depends_on:
+      namenode:
+        condition: service_healthy
+
+  nodemanager1:
+    image: apache/hadoop:3.4.2
+    container_name: nodemanager1
+    hostname: nodemanager1
+    user: root
+    environment:
+      TZ: ${TZ:-Asia/Phnom_Penh}
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+    command: ["bash", "-lc", "mkdir -p /opt/hadoop/logs && chown -R hadoop:hadoop /opt/hadoop/logs /tmp || true && exec su -s /bin/bash hadoop -c 'yarn nodemanager'"]
+    volumes:
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop
+    depends_on:
+      resourcemanager:
+        condition: service_started
+
+  nodemanager2:
+    image: apache/hadoop:3.4.2
+    container_name: nodemanager2
+    hostname: nodemanager2
+    user: root
+    environment:
+      TZ: ${TZ:-Asia/Phnom_Penh}
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+    command: ["bash", "-lc", "mkdir -p /opt/hadoop/logs && chown -R hadoop:hadoop /opt/hadoop/logs /tmp || true && exec su -s /bin/bash hadoop -c 'yarn nodemanager'"]
+    volumes:
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop
+    depends_on:
+      resourcemanager:
+        condition: service_started
+
+  nodemanager3:
+    image: apache/hadoop:3.4.2
+    container_name: nodemanager3
+    hostname: nodemanager3
+    user: root
+    environment:
+      TZ: ${TZ:-Asia/Phnom_Penh}
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+    command: ["bash", "-lc", "mkdir -p /opt/hadoop/logs && chown -R hadoop:hadoop /opt/hadoop/logs /tmp || true && exec su -s /bin/bash hadoop -c 'yarn nodemanager'"]
+    volumes:
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop
+    depends_on:
+      resourcemanager:
+        condition: service_started
+
+  hive-metastore:
+    build:
+      context: ./hive
+      dockerfile: Dockerfile
+    container_name: hive-metastore
+    hostname: hive-metastore
+    environment:
+      SERVICE_NAME: metastore
+      DB_DRIVER: postgres
+      SERVICE_OPTS: >-
+        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-metastore}
+        -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver
+        -Djavax.jdo.option.ConnectionUserName=${POSTGRES_USER:-hive}
+        -Djavax.jdo.option.ConnectionPassword=${POSTGRES_PASSWORD:-hivepassword}
+      TZ: ${TZ:-Asia/Phnom_Penh}
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+      HIVE_CONF_DIR: /opt/hive/conf
+    command: ["bash", "/opt/bootstrap/scripts/hive/run-hive-metastore.sh"]
+    ports:
+      - "9083:9083"
+    volumes:
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop
+      - ./hive/conf:/opt/hive/conf
+      - ./scripts:/opt/bootstrap/scripts
+    depends_on:
+      postgres:
+        condition: service_healthy
+      namenode:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/9083'"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+  hive-server:
+    build:
+      context: ./hive
+      dockerfile: Dockerfile
+    container_name: hive-server
+    hostname: hive-server
+    environment:
+      SERVICE_NAME: hiveserver2
+      DB_DRIVER: postgres
+      SERVICE_OPTS: >-
+        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-metastore}
+        -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver
+        -Djavax.jdo.option.ConnectionUserName=${POSTGRES_USER:-hive}
+        -Djavax.jdo.option.ConnectionPassword=${POSTGRES_PASSWORD:-hivepassword}
+      TZ: ${TZ:-Asia/Phnom_Penh}
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+      HIVE_CONF_DIR: /opt/hive/conf
+    command: ["bash", "/opt/bootstrap/scripts/hive/run-hive-server.sh"]
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+    volumes:
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop
+      - ./hive/conf:/opt/hive/conf
+      - ./sql:/opt/bootstrap/sql
+      - ./scripts:/opt/bootstrap/scripts
+    depends_on:
+      postgres:
+        condition: service_healthy
+      hive-metastore:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/10000'"]
+      interval: 20s
+      timeout: 10s
+      retries: 20
+
+  trino:
+    image: trinodb/trino:472
+    container_name: trino
+    hostname: trino
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./trino/catalog:/etc/trino/catalog
+      - ./sql:/opt/bootstrap/sql
+    depends_on:
+      hive-metastore:
+        condition: service_healthy
+      hive-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "trino --execute 'SHOW CATALOGS' >/dev/null 2>&1"]
+      interval: 20s
+      timeout: 10s
+      retries: 20
+
+  spark-master:
+    image: apache/spark:3.5.1-python3
+    container_name: spark-master
+    hostname: spark-master
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master", "--host", "spark-master", "--port", "7077", "--webui-port", "8080"]
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+
+  spark-worker-1:
+    image: apache/spark:3.5.1-python3
+    container_name: spark-worker-1
+    hostname: spark-worker-1
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    depends_on:
+      - spark-master
+
+  spark-worker-2:
+    image: apache/spark:3.5.1-python3
+    container_name: spark-worker-2
+    hostname: spark-worker-2
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    depends_on:
+      - spark-master
+
+  jupyter:
+    image: quay.io/jupyter/pyspark-notebook:x86_64-python-3.11.6
+    container_name: jupyter
+    hostname: jupyter
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      SPARK_MASTER: spark://spark-master:7077
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    volumes:
+      - ./jupyter/notebooks:/home/jovyan/work
+      - ./datasets:/home/jovyan/datasets
+    depends_on:
+      - spark-master
+
+volumes:
+  postgres_data:
+  namenode_data:
+  datanode1_data:
+  datanode2_data:
+  datanode3_data:

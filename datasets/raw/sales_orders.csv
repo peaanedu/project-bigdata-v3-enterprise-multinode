@@ -1,0 +1,5 @@
+order_id,order_date,region,product,quantity,amount
+1001,2026-01-01,Phnom Penh,Laptop,2,2400
+1002,2026-01-02,Siem Reap,Monitor,5,1500
+1003,2026-01-03,Battambang,Keyboard,10,500
+1004,2026-01-04,Phnom Penh,Mouse,20,300
