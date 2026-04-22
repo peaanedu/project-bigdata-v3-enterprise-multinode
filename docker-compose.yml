@@ -212,7 +212,7 @@ services:
         TZ: ${TZ:-Asia/Phnom_Penh}
         HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
         HIVE_CONF_DIR: /opt/hive/conf
-      command: ["bash", "/opt/bootstrap/scripts/hive/run-hive-server.sh"]
+      command: ["/bin/bash", "-c", "/opt/hive/scripts/run-hive-server.sh"]
       ports:
         - "10000:10000"
         - "10002:10002"
